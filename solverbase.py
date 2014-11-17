@@ -283,8 +283,9 @@ class SolverBase:
             # the tape is backwards so i+1 is the previous time step
             wtape_theta = self.theta * \
                 wtape[i] + (1. - self.theta) * wtape[i + 1]
-            LR1 = self.weak_residual(problem, k, W, wtape_theta, wtape[i],
-                                     wtape[i + 1], z * phi[i], ei_mode=True)
+            LR1 = self.weak_residual(problem, Constant(1.), W, wtape_theta,
+                                     wtape[i], wtape[i + 1], z * phi[i],
+                                     ei_mode=True)
             ei.vector()[:] += assemble(LR1, annotate=False).array()
         return W, w, m, ei
 
