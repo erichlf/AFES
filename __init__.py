@@ -14,7 +14,7 @@ OPTIONS = {
     'Ny': 20,  # number of elements along y axis
     'Nz': 20,  # number of elements along z axis
     'k': 0.01,  # time-step
-    'T': 1.0,  # final-time
+    'T': 10.0,  # final-time
     'theta': 0.5,  # time-stepping method
     'adaptive': False,  # mesh adaptivity
     'adapt_ratio': 0.1,  # percent of mesh to refine
