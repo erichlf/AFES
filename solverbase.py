@@ -417,6 +417,9 @@ class SolverBase:
             if adjointer:  # only needed if DOLFIN-Adjoint has been imported
                 adj_inc_timestep(t, finished=t >= (T - k / 2.))
 
+            if 'post_step' in dir(self):
+                self.post_step(problem, t, k, W, w)
+
             # Update
             self.update(problem, t, W, w_)
 
