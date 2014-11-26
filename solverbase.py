@@ -95,7 +95,7 @@ class SolverBase:
         self._timestep = 0
 
         # adaptivity options
-        self.adaptive = options['adaptivity']
+        self.adaptive = options['adaptive']
         self.adaptRatio = options['adapt_ratio']
         self.maxAdapts = options['max_adaptations']
         self.adaptTOL = options['adaptive_TOL']
