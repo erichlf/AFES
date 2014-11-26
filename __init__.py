@@ -16,12 +16,13 @@ OPTIONS = {
     'k': 0.01,  # time-step
     'T': 10.0,  # final-time
     'theta': 0.5,  # time-stepping method
+    'stabilize': True,  # stabilize the solution
     'adaptive': False,  # mesh adaptivity
     'adapt_ratio': 0.1,  # percent of mesh to refine
     'max_adaptations': 30,  # max number of times to adapt mesh
     'adaptive_TOL': 1E-20,  # tolerance for terminating adaptivity
     'optimize': False,  # optimize as defined in solver
-    'onDisk': 0.,  # percent of steps on disk
+    'on_disk': 0.,  # percent of steps on disk
     'save_solution': False,
     'save_frequency': 1,
     'plot_solution': True,
@@ -32,5 +33,5 @@ OPTIONS = {
     'monitor_convergence': False,
     'velocity_order': 1,  # order of velocity element
     'pressure_order': 1,  # order of height/pressure element
-    'initialMesh': None  # to use for initial computation
+    'initialMesh': None,  # to use for initial computation
 }

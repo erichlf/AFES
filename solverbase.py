@@ -43,15 +43,14 @@ class SolverBase:
         nonLinearSolver = NewtonSolver()
         prm = nonLinearSolver.parameters
         prm['convergence_criterion'] = 'incremental'
-        prm['absolute_tolerance'] = options["absolute_tolerance"]
-        prm['relative_tolerance'] = options["relative_tolerance"]
-        prm['report'] = options["monitor_convergence"]
+        prm['absolute_tolerance'] = options['absolute_tolerance']
+        prm['relative_tolerance'] = options['relative_tolerance']
+        prm['report'] = options['monitor_convergence']
 
         # Set debug level
-        set_log_active(options["debug"])
+        set_log_active(options['debug'])
 
-        # Store options
-        self.options = options
+        self.mem = options['check_mem_usage']
 
         # initialize parameters
         try:  # Reynolds number
@@ -75,9 +74,18 @@ class SolverBase:
         except:
             self.Th = None
 
+        self.stabilize = options['stabilize']
+
+        self.saveSolution = options['save_solution']
+        if self.saveSolution:
+            self.plotSolution = False
+        else:
+            self.plotSolution = options['plot_solution']
+        self.saveFrequency = options['save_frequency']
+
         # initialize the time stepping method parameters
         try:
-            self.theta = self.options['theta']  # time stepping method
+            self.theta = options['theta']  # time stepping method
         except:
             self.theta = 0.5
 
@@ -86,18 +94,14 @@ class SolverBase:
         self._cputime = 0.0
         self._timestep = 0
 
-        try:
-            self.adapt_ratio = self.options['adapt_ratio']
-        except:
-            self.adapt_ratio = 0.1
-        try:
-            self.maxadapts = self.options['max_adaptations']
-        except:
-            self.maxadapts = 30
-        try:
-            self.adaptTOL = self.options['adaptive_TOL']
-        except:
-            self.adaptTOL = 1E-15
+        # adaptivity options
+        self.adaptive = options['adaptivity']
+        self.adaptRatio = options['adapt_ratio']
+        self.maxAdapts = options['max_adaptations']
+        self.adaptTOL = options['adaptive_TOL']
+        self.onDisk = options['on_disk']
+
+        self.optimize = options['optimize']
 
         # set the velocity and pressure element orders
         self.Pu = options['velocity_order']
@@ -109,7 +113,7 @@ class SolverBase:
         self._pfile = None
         self._uDualfile = None
         self._pDualfile = None
-        self.eifile = None
+        self.eiFile = None
         self.meshfile = None
         self.optfile = None
 
@@ -134,7 +138,7 @@ class SolverBase:
         # naming scheme
         self.s = 'results/' + self.prefix(problem) + self.suffix(problem)
 
-        if self.options['adaptive']:  # solve with adaptivity
+        if self.adaptive:  # solve with adaptivity
             if adjointer:
                 mesh, k = self.adaptivity(problem, mesh, T, t0, k)
             else:
@@ -148,9 +152,8 @@ class SolverBase:
         # record so that we can evaluate our functional
         if adjointer:
             parameters["adjoint"]["stop_annotating"] = \
-                not (self.options['adaptive']
-                     or (self.options['optimize']
-                         and 'Optimize' in dir(problem)))
+                not (self.adaptive or (self.optimize
+                                       and 'Optimize' in dir(problem)))
 
         func = 'functional' in dir(problem)
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
@@ -159,7 +162,7 @@ class SolverBase:
             print 'The size of the functional is: %0.3G' % m
 
         # solve the optimization problem
-        if(self.options['optimize'] and 'Optimize' in dir(problem)):
+        if(self.optimize and 'Optimize' in dir(problem)):
             if adjointer:
                 problem.Optimize(self, W, w)
             else:
@@ -172,17 +175,17 @@ class SolverBase:
     def adaptivity(self, problem, mesh, T, t0, k):
         COND = 1
         # files specific to adaptivity
-        self.eifile = File(self.s + '_ei.pvd')  # error indicators
+        self.eiFile = File(self.s + '_ei.pvd')  # error indicators
         nth = ('st', 'nd', 'rd', 'th')  # numerical descriptors
 
         # Adaptive loop
         i = 0
         m = 0  # initialize
-        while(i <= self.maxadapts and COND > self.adaptTOL):
+        while(i <= self.maxAdapts and COND > self.adaptTOL):
             # setup file names
             self.file_naming(n=i, dual=False)
             # save our current mesh
-            if not self.options['plot_solution']:
+            if not self.plotSolution:
                 self.meshfile << mesh
 
             if i == 0:
@@ -199,16 +202,16 @@ class SolverBase:
             print 'DOFs=%d functional=%0.5G err_est=%0.5G' \
                 % (mesh.num_vertices(), m, COND)
 
-            if i == 0 and self.options['plot_solution']:
+            if i == 0 and self.plotSolution:
                 plot(ei, title="Error Indicators.", elevate=0.0)
                 plot(mesh, title='Initial mesh', size=((600, 300)))
-            elif (i == self.maxadapts or COND <= self.adaptTOL) \
-                    and self.options['plot_solution']:
+            elif (i == self.maxAdapts or COND <= self.adaptTOL) \
+                    and self.plotSolution:
                 plot(ei, title="Error Indicators.", elevate=0.0)
                 plot(mesh, title='Final mesh', size=((600, 300)))
                 interactive()
-            elif not self.options['plot_solution']:
-                self.eifile << ei
+            elif not self.plotSolution:
+                self.eiFile << ei
 
             # Refine the mesh
             print 'Refining mesh.'
@@ -220,7 +223,7 @@ class SolverBase:
 
             i += 1
 
-        if i > self.maxadapts and COND > self.adaptTOL:
+        if i > self.maxAdapts and COND > self.adaptTOL:
             s = 'Warning reached max adaptive iterations with' \
                 + 'sum(abs(EI))=%0.3G.  Solution may not be accurate.' \
                 % COND
@@ -237,13 +240,12 @@ class SolverBase:
         parameters["adjoint"]["stop_annotating"] = False
 
         N = int(round((T - t0) / k))
-        perN = self.options['onDisk']
 
-        assert perN <= 1. or perN >= 0.
-        if perN > 0:
+        assert self.onDisk <= 1. or self.onDisk >= 0.
+        if self.onDisk > 0:
             adj_checkpointing(strategy='multistage', steps=N,
-                              snaps_on_disk=int(perN * N),
-                              snaps_in_ram=int((1. - perN) * N),
+                              snaps_on_disk=int(self.onDisk * N),
+                              snaps_in_ram=int((1. - self.onDisk) * N),
                               verbose=False)
 
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=True)
@@ -361,7 +363,7 @@ class SolverBase:
         # Mark cells for refinement
         cell_markers = MeshFunction("bool", mesh, mesh.topology().dim())
         gamma_0 = sorted(gamma,
-                         reverse=True)[int(len(gamma) * self.adapt_ratio) - 1]
+                         reverse=True)[int(len(gamma) * self.adaptRatio) - 1]
         for c in cells(mesh):
             cell_markers[c] = gamma[c.index()] > gamma_0
 
@@ -436,21 +438,16 @@ class SolverBase:
         timestep_cputime = time() - self._time
         self._cputime += timestep_cputime
 
-        # Store values
-        if t is not None:
+        if t is not None:  # Store time steps
             self._t.append(t)
 
-        # Save solution
-        if self.options['save_solution']:
-            # Save velocity and pressure
+        if self.saveSolution:  # Save solution
             self.Save(problem, w, dual=dual)
-        else:  # Plot solution
-            self.options['plot_solution'] = True
+        elif self.plotSolution:  # Plot solution
             self.Plot(problem, W, w)
 
         # Check memory usage
-        if 'check_mem_usage' in self.options \
-                and self.options['check_mem_usage']:
+        if self.mem:
             print 'Memory usage is:', self.getMyMemoryUsage()
 
         # Print progress
@@ -479,8 +476,8 @@ class SolverBase:
         u = w.split()[0]
         p = w.split()[1]
 
-        if self.options['save_frequency'] != 0 \
-                and ((self._timestep - 1) % self.options['save_frequency'] == 0
+        if self.saveFrequency != 0 \
+                and ((self._timestep - 1) % self.saveFrequency == 0
                      or self._timestep == 0 or self._timestep == problem.T):
             if not dual:
                 self._ufile << u
@@ -541,9 +538,7 @@ class SolverBase:
         else:
             p += '2D'
         s = self.__module__.split('.')[-1]
-        if 'stabilize' in self.options \
-                and self.options['stabilize'] \
-                and 'stabilization_parameters' in dir(self):
+        if self.stabilize and 'stabilization_parameters' in dir(self):
             s += 'Stabilized'
 
         return problem.output_location + s + p
