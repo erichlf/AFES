@@ -404,6 +404,9 @@ class SolverBase:
             if('update' in dir(problem)):
                 bcs = problem.update(W, t)
 
+            if 'pre_step' in dir(self):
+                self.pre_step(problem, t, k, W, w)
+
             solve(F == 0, w, bcs=bcs)
 
             w_.assign(w)
