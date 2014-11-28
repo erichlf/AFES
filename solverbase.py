@@ -285,7 +285,7 @@ class SolverBase:
             # the tape is backwards so i+1 is the previous time step
             wtape_theta = self.theta * \
                 wtape[i] + (1. - self.theta) * wtape[i + 1]
-            LR1 = self.weak_residual(problem, Constant(1.), W, wtape_theta,
+            LR1 = self.weak_residual(problem, Constant(k), W, wtape_theta,
                                      wtape[i], wtape[i + 1], z * phi[i],
                                      ei_mode=True)
             ei.vector()[:] += assemble(LR1, annotate=False).array()
@@ -327,7 +327,8 @@ class SolverBase:
         w_theta = (1. - theta) * w_ + theta * w
 
         # weak form of the primal problem
-        F = self.weak_residual(problem, k, W, w_theta, w, w_, wt, ei_mode=False)
+        F = self.weak_residual(problem, Constant(k), W, w_theta, w, w_, wt,
+                               ei_mode=False)
 
         w, m = self.timeStepper(problem, t0, T, k, W, w, w_, F, func=func)
 
