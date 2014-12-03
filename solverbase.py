@@ -560,7 +560,9 @@ class SolverBase:
         if self.Th is not None:
             s += 'Th' + str(self.Th)
 
-        s += 'T' + str(problem.T) + 'Nx' + str(problem.Nx)
+        s += 'T' + str(problem.T)
+        if problem.Nx is not None:
+            s += 'Nx' + str(problem.Nx)
         if problem.Ny is not None:
             s += 'Ny' + str(problem.Ny)
         if problem.mesh.topology().dim() > 2 and problem.Nz is not None:
