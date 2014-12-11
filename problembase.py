@@ -6,8 +6,15 @@ __date__ = "2013-08-27"
 #
 
 from dolfin import *
-from dolfin_adjoint import *
-from math import *
+try:
+    from dolfin_adjoint import *
+
+    dolfin.parameters["adjoint"]["record_all"] = True
+    adjointer = True
+except:
+    print "WARNING: Could not import DOLFIN-Adjoint. " \
+        + "Adjointing will not be available."
+    adjointer = False
 
 
 class ProblemBase:  # Base class for all problems.
