@@ -401,6 +401,7 @@ class SolverBase:
 
         if adjointer:  # only needed if DOLFIN-Adjoint has been imported
             adj_start_timestep(t)
+
         while t < (T - k / 2.):
             t += k
 
@@ -420,11 +421,11 @@ class SolverBase:
                 else:
                     m += k * assemble(problem.functional(W, w_))
 
-            if adjointer:  # only needed if DOLFIN-Adjoint has been imported
-                adj_inc_timestep(t, finished=t >= (T - k / 2.))
-
             if 'post_step' in dir(self):
                 self.post_step(problem, t, k, W, w)
+
+            if adjointer:  # only needed if DOLFIN-Adjoint has been imported
+                adj_inc_timestep(t, finished=t >= (T - k / 2.))
 
             # Update
             self.update(problem, t, W, w_)
