@@ -405,10 +405,10 @@ class SolverBase:
         # plot and save initial condition
         self.update(problem, t, W, w_)
 
-        #if adjointer:  # only needed if DOLFIN-Adjoint has been imported
-        #    adj_start_timestep(t)
+        if adjointer:  # only needed if DOLFIN-Adjoint has been imported
+            adj_start_timestep(t)
 
-        while t < (T - k / 2.):
+        while t <= T - k / 2.:
             t += k
 
             if('update' in dir(problem)):
@@ -430,8 +430,8 @@ class SolverBase:
             if 'post_step' in dir(self):
                 self.post_step(problem, t, k, W, w)
 
-            #if adjointer:  # only needed if DOLFIN-Adjoint has been imported
-            #    adj_inc_timestep(t, finished=t >= (T - k / 2.))
+            if adjointer:  # only needed if DOLFIN-Adjoint has been imported
+                adj_inc_timestep(t, finished=t > T)
 
             # Update
             self.update(problem, t, W, w_)
