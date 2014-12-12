@@ -165,6 +165,9 @@ class SolverBase:
         if(self.optimize and 'Optimize' in dir(problem)):
             if adjointer:
                 problem.Optimize(self, W, w)
+                self.s += 'Optimized'
+                self.file_naming(n=-1, dual=False)
+                W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
             else:
                 print "WARNING: You have requested Optimization, but" \
                     + " DOLFIN-Adjoint doesn't appear to be installed."
@@ -402,7 +405,7 @@ class SolverBase:
         if adjointer:  # only needed if DOLFIN-Adjoint has been imported
             adj_start_timestep(t)
 
-        while t < (T - k / 2.):
+        while t < T - k / 2.:
             t += k
 
             if('update' in dir(problem)):
@@ -425,7 +428,7 @@ class SolverBase:
                 self.post_step(problem, t, k, W, w)
 
             if adjointer:  # only needed if DOLFIN-Adjoint has been imported
-                adj_inc_timestep(t, finished=t >= (T - k / 2.))
+                adj_inc_timestep(t, finished=t >= (T - k/2.))
 
             # Update
             self.update(problem, t, W, w_)
