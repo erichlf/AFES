@@ -165,8 +165,11 @@ class SolverBase:
         if(self.optimize and 'Optimize' in dir(problem)):
             if adjointer:
                 problem.Optimize(self, W, w)
+
                 self.s += 'Optimized'
                 self.file_naming(n=-1, dual=False)
+
+                parameters["adjoint"]["stop_annotating"] = True
                 W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
             else:
                 print "WARNING: You have requested Optimization, but" \
