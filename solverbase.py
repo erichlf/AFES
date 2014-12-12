@@ -165,10 +165,8 @@ class SolverBase:
         if(self.optimize and 'Optimize' in dir(problem)):
             if adjointer:
                 problem.Optimize(self, W, w)
-
                 self.s += 'Optimized'
                 self.file_naming(n=-1, dual=False)
-
                 parameters["adjoint"]["stop_annotating"] = True
                 W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
             else:
@@ -431,7 +429,7 @@ class SolverBase:
                 self.post_step(problem, t, k, W, w)
 
             if adjointer:  # only needed if DOLFIN-Adjoint has been imported
-                adj_inc_timestep(t, finished=t > T)
+                adj_inc_timestep(t, finished=t >= (T - k/2.))
 
             # Update
             self.update(problem, t, W, w_)
