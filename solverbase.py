@@ -52,30 +52,6 @@ class SolverBase:
 
         self.mem = options['check_mem_usage']
 
-        # initialize parameters
-        try:  # Reynolds number
-            self.Re = options['Re']
-        except:
-            self.Re = None
-        try:  # Fluid depth
-            self.H = options['H']
-        except:
-            self.H = None
-        try:  # Rossby number
-            self.Ro = options['Ro']
-        except:
-            self.Ro = None
-        try:  # Froude number
-            self.Fr = options['Fr']
-        except:
-            self.Fr = None
-        try:
-            self.Th = options['Theta']
-        except:
-            self.Th = None
-
-        self.stabilize = options['stabilize']
-
         self.saveSolution = options['save_solution']
         if self.saveSolution:
             self.plotSolution = False
@@ -108,12 +84,11 @@ class SolverBase:
         self.Pp = options['pressure_order']
 
         # Reset files for storing solution
-        self.s = None
         self._ufile = None
         self._pfile = None
         self._uDualfile = None
         self._pDualfile = None
-        self.eiFile = None
+        self.eifile = None
         self.meshfile = None
         self.optfile = None
 
@@ -135,9 +110,6 @@ class SolverBase:
         # adjust time step so that we evenly divide time interval
         k = self.adjust_dt(t0, T, problem.k)
 
-        # naming scheme
-        self.s = 'results/' + self.prefix(problem) + self.suffix(problem)
-
         if self.adaptive:  # solve with adaptivity
             if adjointer:
                 mesh, k = self.adaptivity(problem, mesh, T, t0, k)
@@ -147,7 +119,7 @@ class SolverBase:
                 print "Solving without adaptivity."
 
         print 'Solving the primal problem.'
-        self.file_naming(n=-1, dual=False)
+        self.file_naming(problem, n=-1, opt=False)
 
         # record so that we can evaluate our functional
         if adjointer:
@@ -165,8 +137,7 @@ class SolverBase:
         if(self.optimize and 'Optimize' in dir(problem)):
             if adjointer:
                 problem.Optimize(self, W, w)
-                self.s += 'Optimized'
-                self.file_naming(n=-1, dual=False)
+                self.file_naming(problem, n=-1, opt=True)
                 parameters["adjoint"]["stop_annotating"] = True
                 W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
             else:
@@ -178,8 +149,6 @@ class SolverBase:
 
     def adaptivity(self, problem, mesh, T, t0, k):
         COND = 1
-        # files specific to adaptivity
-        self.eiFile = File(self.s + '_ei.pvd')  # error indicators
         nth = ('st', 'nd', 'rd', 'th')  # numerical descriptors
 
         # Adaptive loop
@@ -187,7 +156,7 @@ class SolverBase:
         m = 0  # initialize
         while(i <= self.maxAdapts and COND > self.adaptTOL):
             # setup file names
-            self.file_naming(n=i, dual=False)
+            self.file_naming(problem, n=i, opt=False)
             # save our current mesh
             if not self.plotSolution:
                 self.meshfile << mesh
@@ -215,7 +184,7 @@ class SolverBase:
                 plot(mesh, title='Final mesh', size=((600, 300)))
                 interactive()
             elif not self.plotSolution:
-                self.eiFile << ei
+                self.eifile << ei
 
             # Refine the mesh
             print 'Refining mesh.'
@@ -492,25 +461,65 @@ class SolverBase:
                 self._uDualfile << u
                 self._pDualfile << p
 
-    def file_naming(self, n=-1, dual=False):
+    def prefix(self, problem):
+        '''
+            Obtains the beginning of file naming, e.g. Problem Name, Solver
+            Name, dimension, etc.
+        '''
+        # Return file prefix for output files
+        p = problem.__module__.split('.')[-1]
+        if problem.mesh.topology().dim() > 2:
+            p += '3D'
+        else:
+            p += '2D'
+        s = self.__module__.split('.')[-1]
+
+        return problem.output_location + s + p
+
+    def suffix(self, problem):
+        '''
+            Obtains the run specific data for file naming, e.g. Nx, k, etc.
+        '''
+
+        s = 'T' + str(problem.T)
+        if problem.Nx is not None:
+            s += 'Nx' + str(problem.Nx)
+        if problem.Ny is not None:
+            s += 'Ny' + str(problem.Ny)
+        if problem.mesh.topology().dim() > 2 and problem.Nz is not None:
+            s += 'Nz' + str(problem.Nz)
+
+        s += 'K' + str(problem.k)
+
+        return s
+
+    def file_naming(self, problem, n=-1, opt=False):
         '''
             Names our files for saving variables. Here we assume there are
             two variables where the first variable is vector-valued and the
             second variable is a scalar. If this doesn't fit the particular
             solvers variables the user will need to overload this function.
         '''
+
+        s = 'results/' + self.prefix(problem) + self.suffix(problem)
+
         if n == -1:
-            self._ufile = File(self.s + '_u.pvd', 'compressed')
-            self._pfile = File(self.s + '_p.pvd', 'compressed')
-            self._uDualfile = File(self.s + '_uDual.pvd', 'compressed')
-            self._pDualfile = File(self.s + '_pDual.pvd', 'compressed')
-            self.meshfile = File(self.s + '_mesh.xml')
-        else:
-            self._ufile = File(self.s + '_u%02d.pvd' % n, 'compressed')
-            self._pfile = File(self.s + '_p%02d.pvd' % n, 'compressed')
-            self._uDualfile = File(self.s + '_uDual%02d.pvd' % n, 'compressed')
-            self._pDualfile = File(self.s + '_pDual%02d.pvd' % n, 'compressed')
-            self.meshfile = File(self.s + '_mesh%02d.xml' % n)
+            if opt:
+                self._ufile = File(s + '_uOpt.pvd', 'compressed')
+                self._pfile = File(s + '_pOpt.pvd', 'compressed')
+            else:
+                self._ufile = File(s + '_u.pvd', 'compressed')
+                self._pfile = File(s + '_p.pvd', 'compressed')
+            self._uDualfile = File(s + '_uDual.pvd', 'compressed')
+            self._pDualfile = File(s + '_pDual.pvd', 'compressed')
+            self.meshfile = File(s + '_mesh.xml')
+        else:  # adaptive specific files
+            self.eifile = File(s + '_ei.pvd', 'compressed')  # error indicators
+            self._ufile = File(s + '_u%02d.pvd' % n, 'compressed')
+            self._pfile = File(s + '_p%02d.pvd' % n, 'compressed')
+            self._uDualfile = File(s + '_uDual%02d.pvd' % n, 'compressed')
+            self._pDualfile = File(s + '_pDual%02d.pvd' % n, 'compressed')
+            self.meshfile = File(s + '_mesh%02d.xml' % n)
 
     # this is a separate function so that it can be overloaded
     def Plot(self, problem, W, w):
@@ -531,51 +540,6 @@ class SolverBase:
         else:
             self.vizU.plot(u)
             self.vizP.plot(p)
-
-    def prefix(self, problem):
-        '''
-            Obtains the beginning of file naming, e.g. Probem Name, Solver Name,
-            dimension, etc.
-        '''
-        # Return file prefix for output files
-        p = problem.__module__.split('.')[-1]
-        if problem.mesh.topology().dim() > 2:
-            p += '3D'
-        else:
-            p += '2D'
-        s = self.__module__.split('.')[-1]
-        if self.stabilize and 'stabilization_parameters' in dir(self):
-            s += 'Stabilized'
-
-        return problem.output_location + s + p
-
-    def suffix(self, problem):
-        '''
-            Obtains the run specific data for file naming, e.g. Nx, k, etc.
-        '''
-        s = ''
-
-        # Return file suffix for output files
-        if self.Re is not None:
-            s = 'Re' + str(int(self.Re))
-        if self.Ro is not None:
-            s += 'Ro' + str(self.Ro)
-        if self.Fr is not None:
-            s += 'Fr' + str(self.Fr)
-        if self.Th is not None:
-            s += 'Th' + str(self.Th)
-
-        s += 'T' + str(problem.T)
-        if problem.Nx is not None:
-            s += 'Nx' + str(problem.Nx)
-        if problem.Ny is not None:
-            s += 'Ny' + str(problem.Ny)
-        if problem.mesh.topology().dim() > 2 and problem.Nz is not None:
-            s += 'Nz' + str(problem.Nz)
-
-        s += 'K' + str(int(1. / problem.k))
-
-        return s
 
     def getMyMemoryUsage(self):
         '''
