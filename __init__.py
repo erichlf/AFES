@@ -33,5 +33,5 @@ OPTIONS = {
     'monitor_convergence': False,
     'velocity_order': 1,  # order of velocity element
     'pressure_order': 1,  # order of height/pressure element
-    'initialMesh': None,  # to use for initial computation
+    'initial_mesh': None,  # to use for initial computation
 }
