@@ -129,6 +129,7 @@ class SolverBase:
 
         func = 'functional' in dir(problem)
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
+        parameters["adjoint"]["stop_annotating"] = True
         if m is not None:
             print
             print 'The size of the functional is: %0.3G' % m
@@ -136,9 +137,15 @@ class SolverBase:
         # solve the optimization problem
         if(self.optimize and 'Optimize' in dir(problem)):
             if adjointer:
+                # give me an end line so that dolfin-adjoint doesn't
+                # cover previous prints
+                print
+                adj_html('forward.html', 'forward')
+                adj_html('adjoint.html', 'adjoint')
                 problem.Optimize(self, W, w)
+
                 self.file_naming(problem, n=-1, opt=True)
-                parameters["adjoint"]["stop_annotating"] = True
+
                 W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
             else:
                 print "WARNING: You have requested Optimization, but" \
@@ -256,8 +263,8 @@ class SolverBase:
 
         for i in range(0, len(wtape) - 2):
             # the tape is backwards so i+1 is the previous time step
-            wtape_theta = self.theta * \
-                wtape[i] + (1. - self.theta) * wtape[i + 1]
+            wtape_theta = self.theta * wtape[i] \
+                + (1. - self.theta) * wtape[i + 1]
             LR1 = self.weak_residual(problem, Constant(k), W, wtape_theta,
                                      wtape[i], wtape[i + 1], z * phi[i],
                                      ei_mode=True)
@@ -352,7 +359,7 @@ class SolverBase:
             ensure that the new time step is always smaller than the original.
         '''
         div, rem = divmod((T - t0), k)
-        if rem is not 0:
+        if rem > DOLFIN_EPS:
             k = (T - t0) / (div + 1)
 
         return k
@@ -361,21 +368,24 @@ class SolverBase:
         '''
             Time stepper for solver using theta-method.
         '''
-        if func:
-            m = 0
-        else:
-            m = None
-        bcs = problem.boundary_conditions(W, t)
         # Time loop
         self.start_timing()
+        # if adjoint:
+        #    adj_start_timestep(t)
+
+        bcs = problem.boundary_conditions(W, t)
 
         # plot and save initial condition
         self.update(problem, t, W, w_)
 
-        if adjointer:  # only needed if DOLFIN-Adjoint has been imported
-            adj_start_timestep(t)
+        if func and adjointer:  # annotation only works with DOLFIN-Adjoint
+            m = k * assemble(problem.functional(W, w_), annotate=False)
+        elif func:
+            m = k * assemble(problem.functional(W, w_))
+        else:
+            m = None
 
-        while t <= T - k / 2.:
+        while t < T - DOLFIN_EPS:
             t += k
 
             if('update' in dir(problem)):
@@ -384,23 +394,22 @@ class SolverBase:
             if 'pre_step' in dir(self):
                 self.pre_step(problem, t, k, W, w)
 
-            solve(F == 0, w, bcs=bcs)
+            solve(F == 0, w, bcs)
 
             w_.assign(w)
-            if func:
-                if adjointer:  # annotation only works with DOLFIN-Adjoint
-                    m += k * assemble(problem.functional(W, w_),
-                                      annotate=False)
-                else:
-                    m += k * assemble(problem.functional(W, w_))
+
+            # Determine the value of our functional
+            if func and adjointer:  # annotation only works with DOLFIN-Adjoint
+                m += k * assemble(problem.functional(W, w_), annotate=False)
+            elif func:
+                m += k * assemble(problem.functional(W, w_))
 
             if 'post_step' in dir(self):
                 self.post_step(problem, t, k, W, w)
 
-            if adjointer:  # only needed if DOLFIN-Adjoint has been imported
-                adj_inc_timestep(t, finished=t >= (T - k/2.))
+            if adjointer:  # can only use if DOLFIN-Adjoint has been imported
+                adj_inc_timestep()
 
-            # Update
             self.update(problem, t, W, w_)
 
         return w_, m
@@ -431,9 +440,9 @@ class SolverBase:
                 % (self._timestep, timestep_cputime)
             s += '%g%% done (t = %g, T = %g).' % (100.0 * (t / problem.T), t,
                                                   problem.T)
-            sys.stdout.flush()
             sys.stdout.write('\033[K')
             sys.stdout.write(s + '\r')
+            sys.stdout.flush()
 
             # record current time
             self._time = time()
