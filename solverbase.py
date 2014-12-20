@@ -140,8 +140,6 @@ class SolverBase:
                 # give me an end line so that dolfin-adjoint doesn't
                 # cover previous prints
                 print
-                adj_html('forward.html', 'forward')
-                adj_html('adjoint.html', 'adjoint')
                 problem.Optimize(self, W, w)
 
                 self.file_naming(problem, n=-1, opt=True)
