@@ -368,8 +368,8 @@ class SolverBase:
         '''
         # Time loop
         self.start_timing()
-        # if adjoint:
-        #    adj_start_timestep(t)
+        if adjoint:
+            adj_start_timestep(t)
 
         bcs = problem.boundary_conditions(W, t)
 
@@ -406,7 +406,7 @@ class SolverBase:
                 self.post_step(problem, t, k, W, w)
 
             if adjointer:  # can only use if DOLFIN-Adjoint has been imported
-                adj_inc_timestep()
+                adj_inc_timestep(t, finished=t>T-DOLFIN_EPS)
 
             self.update(problem, t, W, w_)
 
