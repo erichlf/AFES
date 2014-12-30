@@ -259,7 +259,7 @@ class SolverBase:
 
         print 'Building error indicators.'
 
-        for i in range(0, len(wtape) - 2):
+        for i in range(0, len(wtape) - 1):
             # the tape is backwards so i+1 is the previous time step
             wtape_theta = self.theta * wtape[i] \
                 + (1. - self.theta) * wtape[i + 1]
