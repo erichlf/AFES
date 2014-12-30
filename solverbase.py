@@ -394,6 +394,9 @@ class SolverBase:
 
             solve(F == 0, w, bcs)
 
+            if 'post_step' in dir(self):
+                self.post_step(problem, t, k, W, w, w_)
+
             w_.assign(w)
 
             # Determine the value of our functional
@@ -401,9 +404,6 @@ class SolverBase:
                 m += k * assemble(problem.functional(W, w_), annotate=False)
             elif func:
                 m += k * assemble(problem.functional(W, w_))
-
-            if 'post_step' in dir(self):
-                self.post_step(problem, t, k, W, w)
 
             if adjointer:  # can only use if DOLFIN-Adjoint has been imported
                 adj_inc_timestep(t, finished=t>T-DOLFIN_EPS)
