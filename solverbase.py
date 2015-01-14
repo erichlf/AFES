@@ -227,6 +227,8 @@ class SolverBase:
                               verbose=False)
 
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=True)
+        adj_html("forward.html", "forward")
+        adj_html("adjoint.html", "adjoint")
         parameters["adjoint"]["stop_annotating"] = True
         self._timestep = 0  # reset the time step to zero
 
@@ -247,7 +249,9 @@ class SolverBase:
         print
         print 'Solving the dual problem.'
         for (adj, var) in compute_adjoint(J, forget=False):
-            if var.name == 'w' and timestep != var.timestep:
+            # use only the last iteration or the initial condition
+            if var.name == 'w' and (timestep != var.timestep
+                                    or var.timestep == 0):
                 timestep = var.timestep
                 # Compute error indicators ei
                 wtape.append(DolfinAdjointVariable(w).
@@ -267,6 +271,7 @@ class SolverBase:
                                      wtape[i], wtape[i + 1], z * phi[i],
                                      ei_mode=True)
             ei.vector()[:] += assemble(LR1, annotate=False).array()
+
         return W, w, m, ei
 
     def condition(self, ei, m, m_):
@@ -356,9 +361,9 @@ class SolverBase:
             Adjust time step so that we evenly divide the time interval, but
             ensure that the new time step is always smaller than the original.
         '''
-        div, rem = divmod((T - t0), k)
-        if rem > DOLFIN_EPS:
-            k = (T - t0) / (div + 1)
+        d, r = divmod((T - t0), k)
+        if r > DOLFIN_EPS:
+            k = (T - t0) / (d + 1)
 
         return k
 
@@ -368,7 +373,7 @@ class SolverBase:
         '''
         # Time loop
         self.start_timing()
-        if adjoint:
+        if adjointer:
             adj_start_timestep(t)
 
         bcs = problem.boundary_conditions(W, t)
@@ -383,7 +388,7 @@ class SolverBase:
         else:
             m = None
 
-        while t < T - DOLFIN_EPS:
+        while t < T - k / 2.:
             t += k
 
             if('update' in dir(problem)):
@@ -406,7 +411,7 @@ class SolverBase:
                 m += k * assemble(problem.functional(W, w_))
 
             if adjointer:  # can only use if DOLFIN-Adjoint has been imported
-                adj_inc_timestep(t, finished=t>T-DOLFIN_EPS)
+                adj_inc_timestep(t, finished=t>T-k/2.)
 
             self.update(problem, t, W, w_)
 
