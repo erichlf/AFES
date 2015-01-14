@@ -129,7 +129,7 @@ class SolverBase:
 
         func = 'functional' in dir(problem)
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
-        parameters["adjoint"]["stop_annotating"] = True
+
         if m is not None:
             print
             print 'The size of the functional is: %0.3G' % m
@@ -144,6 +144,7 @@ class SolverBase:
 
                 self.file_naming(problem, n=-1, opt=True)
 
+                parameters["adjoint"]["stop_annotating"] = True
                 W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
             else:
                 print "WARNING: You have requested Optimization, but" \
