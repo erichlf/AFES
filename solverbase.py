@@ -79,6 +79,8 @@ class SolverBase:
 
         self.optimize = options['optimize']
 
+        self.steady_state = False
+
         # set the velocity and pressure element orders
         self.Pu = options['velocity_order']
         self.Pp = options['pressure_order']
@@ -105,10 +107,17 @@ class SolverBase:
             should be used or if a problem is an optimization problem.
         '''
         mesh = problem.mesh
-        T = problem.T
-        t0 = problem.t0
-        # adjust time step so that we evenly divide time interval
-        k = self.adjust_dt(t0, T, problem.k)
+        if not self.steady_state:
+            T = problem.T
+            t0 = problem.t0
+
+            # adjust time step so that we evenly divide time interval
+            k = self.adjust_dt(t0, T, problem.k)
+        else:
+            T = None
+            t0 = None
+
+            k = None
 
         if self.adaptive:  # solve with adaptivity
             if adjointer:
@@ -195,7 +204,7 @@ class SolverBase:
             # Refine the mesh
             print 'Refining mesh.'
             mesh = self.adaptive_refine(mesh, ei)
-            if 'time_step' in dir(problem):
+            if 'time_step' in dir(problem) and not self.steady_state:
                 k = self.adjust_dt(t0, T, problem.time_step(problem.Ubar, mesh))
 
             adj_reset()  # reset the dolfin-adjoint
@@ -218,18 +227,18 @@ class SolverBase:
         print 'Solving the primal problem.'
         parameters["adjoint"]["stop_annotating"] = False
 
-        N = int(round((T - t0) / k))
+        if not self.steady_state:
+            N = int(round((T - t0) / k))
 
-        assert self.onDisk <= 1. or self.onDisk >= 0.
-        if self.onDisk > 0:
-            adj_checkpointing(strategy='multistage', steps=N,
-                              snaps_on_disk=int(self.onDisk * N),
-                              snaps_in_ram=int((1. - self.onDisk) * N),
-                              verbose=False)
+            assert self.onDisk <= 1. or self.onDisk >= 0.
+            if self.onDisk > 0:
+                adj_checkpointing(strategy='multistage', steps=N,
+                                  snaps_on_disk=int(self.onDisk * N),
+                                  snaps_in_ram=int((1. - self.onDisk) * N),
+                                  verbose=False)
 
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=True)
-        adj_html("forward.html", "forward")
-        adj_html("adjoint.html", "adjoint")
+        adj_html('adjoint.html', 'adjoint')
         parameters["adjoint"]["stop_annotating"] = True
         self._timestep = 0  # reset the time step to zero
 
@@ -242,7 +251,11 @@ class SolverBase:
         LR1 = 0.
 
         # Generate the dual problem
-        J = Functional(problem.functional(W, w) * dt, name='DualArgument')
+        if self.steady_state:
+            functional = problem.functional(W, w)
+        else:
+            functional = problem.functional(W, w) * dt
+        J = Functional(functional, name='DualArgument')
         timestep = None
         wtape = []
         phi = []
@@ -254,9 +267,13 @@ class SolverBase:
             if var.name == 'w' and (timestep != var.timestep
                                     or var.timestep == 0):
                 timestep = var.timestep
+                if var.timestep == 0 and timestep != var.timestep:
+                    iteration = 1
+                else:
+                    iteration = 0
                 # Compute error indicators ei
                 wtape.append(DolfinAdjointVariable(w).
-                             tape_value(timestep=timestep))
+                             tape_value(timestep=timestep, iteration=iteration))
                 phi.append(adj)
                 self.update(problem, None, W, adj, dual=True)
 
@@ -264,12 +281,17 @@ class SolverBase:
 
         print 'Building error indicators.'
 
-        for i in range(0, len(wtape) - 1):
-            # the tape is backwards so i+1 is the previous time step
-            wtape_theta = self.theta * wtape[i] \
-                + (1. - self.theta) * wtape[i + 1]
-            LR1 = self.weak_residual(problem, Constant(k), W, wtape_theta,
-                                     wtape[i], wtape[i + 1], z * phi[i],
+        if not self.steady_state:
+            for i in range(0, len(wtape) - 1):
+                # the tape is backwards so i+1 is the previous time step
+                wtape_theta = self.theta * wtape[i] \
+                    + (1. - self.theta) * wtape[i + 1]
+                LR1 = self.weak_residual(problem, Constant(k), W, wtape_theta,
+                                         wtape[i], wtape[i + 1], z * phi[i],
+                                         ei_mode=True)
+                ei.vector()[:] += assemble(LR1, annotate=False).array()
+        else:
+            LR1 = self.weak_residual(problem, W, wtape[0], z * phi[0],
                                      ei_mode=True)
             ei.vector()[:] += assemble(LR1, annotate=False).array()
 
@@ -292,29 +314,39 @@ class SolverBase:
             Here we take the weak_residual and apply boundary conditions and
             then send it to time_stepper for solving.
         '''
+
         # Define function spaces
         # we do it this way so that it can be overloaded
         W = self.function_space(mesh)
 
-        ic = problem.initial_conditions(W)
+        if not self.steady_state:
+            ic = problem.initial_conditions(W)
 
         # define trial and test function
         wt = TestFunction(W)
         if adjointer:  # only use annotation if DOLFIN-Adjoint was imported
             w = Function(W, name='w')
-            w_ = Function(ic, name='w_')
+            if not self.steady_state:
+                w_ = Function(ic, name='w_')
         else:
             w = Function(W)
-            w_ = Function(ic)
+            if not self.steady_state:
+                w_ = Function(ic)
 
-        theta = self.theta
-        w_theta = (1. - theta) * w_ + theta * w
+        if not self.steady_state:
+            theta = self.theta
+            w_theta = (1. - theta) * w_ + theta * w
 
-        # weak form of the primal problem
-        F = self.weak_residual(problem, Constant(k), W, w_theta, w, w_, wt,
-                               ei_mode=False)
+            # weak form of the primal problem
+            F = self.weak_residual(problem, Constant(k), W, w_theta, w, w_, wt,
+                                   ei_mode=False)
 
-        w, m = self.timeStepper(problem, t0, T, k, W, w, w_, F, func=func)
+            w, m = self.timeStepper(problem, t0, T, k, W, w, w_, F, func=func)
+        else:
+            # weak form of the primal problem
+            F = self.weak_residual(problem, W, w, wt, ei_mode=False)
+
+            w, m = self.steady_solve(problem, W, w, F, func=func)
 
         return W, w, m
 
@@ -367,6 +399,22 @@ class SolverBase:
             k = (T - t0) / (d + 1)
 
         return k
+
+    def steady_solve(self, problem, W, w, F, func=False):
+
+        self.start_timing()
+        bcs = problem.boundary_conditions(W, 1000)
+
+        solve(F == 0, w, bcs)
+
+        if func and adjointer:  # annotation only works with DOLFIN-Adjoint
+            m = assemble(problem.functional(W, w), annotate=False)
+        elif func:
+            m = assemble(problem.functional(W, w))
+        else:
+            m = None
+
+        return w, m
 
     def timeStepper(self, problem, t, T, k, W, w, w_, F, func=False):
         '''
@@ -527,7 +575,8 @@ class SolverBase:
             self._pDualfile = File(s + '_pDual.pvd', 'compressed')
             self.meshfile = File(s + '_mesh.xml')
         else:  # adaptive specific files
-            self.eifile = File(s + '_ei.pvd', 'compressed')  # error indicators
+            if self.eifile is None:  # error indicators
+                self.eifile = File(s + '_ei.pvd', 'compressed')
             self._ufile = File(s + '_u%02d.pvd' % n, 'compressed')
             self._pfile = File(s + '_p%02d.pvd' % n, 'compressed')
             self._uDualfile = File(s + '_uDual%02d.pvd' % n, 'compressed')
