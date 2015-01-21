@@ -403,7 +403,7 @@ class SolverBase:
     def steady_solve(self, problem, W, w, F, func=False):
 
         self.start_timing()
-        bcs = problem.boundary_conditions(W, 1000)
+        bcs = problem.boundary_conditions(W)
 
         solve(F == 0, w, bcs)
 
