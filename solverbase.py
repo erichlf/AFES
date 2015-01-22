@@ -238,7 +238,6 @@ class SolverBase:
                                   verbose=False)
 
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=True)
-        adj_html('adjoint.html', 'adjoint')
         parameters["adjoint"]["stop_annotating"] = True
         self._timestep = 0  # reset the time step to zero
 
