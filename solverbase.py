@@ -293,7 +293,7 @@ class SolverBase:
         else:
             LR1 = self.weak_residual(problem, W, wtape[0], z * phi[0],
                                      ei_mode=True)
-            ei.vector()[:] += assemble(LR1, annotate=False).array()
+            ei.vector()[:] = assemble(LR1, annotate=False).array()
 
         return W, w, m, ei
 
