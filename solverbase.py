@@ -264,18 +264,12 @@ class SolverBase:
         print 'Solving the dual problem.'
         for (adj, var) in compute_adjoint(J, forget=False):
             # use only the last iteration or the initial condition
-            if var.name == 'w':  # and (timestep != var.timestep
-                                 #     or var.timestep == 0):
+            if var.name == 'w':
                 timestep = var.timestep
-                # if var.timestep == 0 and timestep != var.timestep:
-                #     iteration = 1
-                # else:
-                #     iteration = 0
                 # Compute error indicators ei
                 wtape.append(DolfinAdjointVariable(w).
-                             tape_value(timestep=timestep))  # , iteration=iteration))
+                             tape_value(timestep=timestep))
                 phi.append(adj)
-                self.update(problem, None, W, adj, dual=True)
 
         self._timestep = 0  # reset the time step to zero
 
@@ -290,10 +284,12 @@ class SolverBase:
                                          wtape[i], wtape[i + 1], z * phi[i],
                                          ei_mode=True)
                 ei.vector()[:] += assemble(LR1, annotate=False).array()
+                self.update(problem, None, W, phi[i], dual=True)
         else:
             LR1 = self.weak_residual(problem, W, wtape[0], z * phi[0],
                                      ei_mode=True)
             ei.vector()[:] = assemble(LR1, annotate=False).array()
+            self.update(problem, None, W, phi[0], dual=True)
 
         return W, w, m, ei
 
