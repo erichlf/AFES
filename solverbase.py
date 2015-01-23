@@ -198,7 +198,7 @@ class SolverBase:
                 plot(ei, title="Error Indicators.", elevate=0.0)
                 plot(mesh, title='Final mesh', size=((600, 300)))
                 interactive()
-            elif not self.plotSolution:
+            elif not self.plotSolution and self.saveSolution:  # Save solution
                 self.eifile << ei
 
             # Refine the mesh
