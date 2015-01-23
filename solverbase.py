@@ -237,12 +237,13 @@ class SolverBase:
                                   snaps_in_ram=int((1. - self.onDisk) * N),
                                   verbose=False)
 
+        self._timestep = 0  # reset the time step to zero
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=True)
         parameters["adjoint"]["stop_annotating"] = True
         self._timestep = 0  # reset the time step to zero
 
-        phi = Function(W)
-
+        print
+        print 'Solving the dual problem.'
         # Generate error indicators
         Z = FunctionSpace(mesh, "DG", 0)
         z = TestFunction(Z)
@@ -259,19 +260,24 @@ class SolverBase:
         wtape = []
         phi = []
 
-        print
-        print 'Solving the dual problem.'
+        self._timestep = 0  # reset the time step to zero
+
+        t = problem.T
         for (adj, var) in compute_adjoint(J, forget=False):
-            # use only the last iteration or the initial condition
             if var.name == 'w':
                 timestep = var.timestep
                 # Compute error indicators ei
                 wtape.append(DolfinAdjointVariable(w).
                              tape_value(timestep=timestep))
                 phi.append(adj)
+                if not self.steady_state:
+                    self.update(problem, t, W, adj, dual=True)
+                    t -= k
 
-        self._timestep = 0  # reset the time step to zero
+        if self.steady_state:
+            self.update(problem, None, W, phi[0], dual=True)
 
+        print
         print 'Building error indicators.'
 
         if not self.steady_state:
@@ -283,12 +289,10 @@ class SolverBase:
                                          wtape[i], wtape[i + 1], z * phi[i],
                                          ei_mode=True)
                 ei.vector()[:] += assemble(LR1, annotate=False).array()
-                self.update(problem, None, W, phi[i], dual=True)
         else:
             LR1 = self.weak_residual(problem, W, wtape[0], z * phi[0],
                                      ei_mode=True)
             ei.vector()[:] = assemble(LR1, annotate=False).array()
-            self.update(problem, None, W, phi[0], dual=True)
 
         return W, w, m, ei
 
@@ -374,8 +378,9 @@ class SolverBase:
 
         # Mark cells for refinement
         cell_markers = MeshFunction("bool", mesh, mesh.topology().dim())
-        gamma_0 = sorted(gamma,
-                         reverse=True)[int(len(gamma) * self.adaptRatio) - 1]
+        adapt_n = int(len(gamma) * self.adaptRatio - 1)
+        gamma_0 = sorted(gamma, reverse=True)[adapt_n]
+        print 'Refining %G of %G cells (%0.2G%%).' % (adapt_n, len(gamma), 100*adapt_n/len(gamma))
         for c in cells(mesh):
             cell_markers[c] = gamma[c.index()] > gamma_0
 
@@ -408,6 +413,8 @@ class SolverBase:
             m = assemble(problem.functional(W, w))
         else:
             m = None
+
+        self.update(problem, None, W, w)
 
         return w, m
 
@@ -469,7 +476,7 @@ class SolverBase:
         timestep_cputime = time() - self._time
         self._cputime += timestep_cputime
 
-        if t is not None:  # Store time steps
+        if not dual or t is not None:  # Store time steps
             self._t.append(t)
 
         if self.saveSolution:  # Save solution
@@ -482,20 +489,24 @@ class SolverBase:
             print 'Memory usage is:', self.getMyMemoryUsage()
 
         # Print progress
-        if not dual:
+        if t is not None:
             s = 'Time step %d finished in %g seconds, ' \
                 % (self._timestep, timestep_cputime)
-            s += '%g%% done (t = %g, T = %g).' % (100.0 * (t / problem.T), t,
-                                                  problem.T)
+            perc = 100 * t / problem.T
+            if dual:
+                perc = 100 - perc
+            s += '%g%% done (t = %g, T = %g).' % (perc, round(t,14), problem.T)
+
+        if t is not None:
             sys.stdout.write('\033[K')
             sys.stdout.write(s + '\r')
             sys.stdout.flush()
 
-            # record current time
-            self._time = time()
+            # Increase time step
+            self._timestep += 1
 
-        # Increase time step
-        self._timestep += 1
+        # record current time
+        self._time = time()
 
     def Save(self, problem, w, dual=False):
         '''
