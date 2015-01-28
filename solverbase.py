@@ -140,7 +140,6 @@ class SolverBase:
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
 
         if m is not None:
-            print
             print 'The size of the functional is: %0.3G' % m
 
         # solve the optimization problem
@@ -242,14 +241,7 @@ class SolverBase:
         parameters["adjoint"]["stop_annotating"] = True
         self._timestep = 0  # reset the time step to zero
 
-        print
         print 'Solving the dual problem.'
-        # Generate error indicators
-        Z = FunctionSpace(mesh, "DG", 0)
-        z = TestFunction(Z)
-        ei = Function(Z, name='Error Indicator')
-        LR1 = 0.
-
         # Generate the dual problem
         if self.steady_state:
             functional = problem.functional(W, w)
@@ -262,11 +254,11 @@ class SolverBase:
 
         self._timestep = 0  # reset the time step to zero
 
+        # compute the dual solution used in ei and grab the tape value
         t = problem.T
         for (adj, var) in compute_adjoint(J, forget=False):
             if var.name == 'w':
                 timestep = var.timestep
-                # Compute error indicators ei
                 wtape.append(DolfinAdjointVariable(w).
                              tape_value(timestep=timestep))
                 phi.append(adj)
@@ -276,9 +268,14 @@ class SolverBase:
 
         if self.steady_state:
             self.update(problem, None, W, phi[0], dual=True)
+        else:
+            print
 
-        print
         print 'Building error indicators.'
+        Z = FunctionSpace(mesh, "DG", 0)
+        z = TestFunction(Z)
+        ei = Function(Z, name='Error Indicator')
+        LR1 = 0.
 
         if not self.steady_state:
             for i in range(0, len(wtape) - 1):
@@ -380,7 +377,8 @@ class SolverBase:
         cell_markers = MeshFunction("bool", mesh, mesh.topology().dim())
         adapt_n = int(len(gamma) * self.adaptRatio - 1)
         gamma_0 = sorted(gamma, reverse=True)[adapt_n]
-        print 'Refining %G of %G cells (%0.2G%%).' % (adapt_n, len(gamma), 100*adapt_n/len(gamma))
+        print 'Refining %G of %G cells (%0.2G%%).' \
+            % (adapt_n, len(gamma), 100*adapt_n/len(gamma))
         for c in cells(mesh):
             cell_markers[c] = gamma[c.index()] > gamma_0
 
@@ -466,6 +464,8 @@ class SolverBase:
 
             self.update(problem, t, W, w_)
 
+        print
+
         return w_, m
 
     def update(self, problem, t, W, w, dual=False):
@@ -495,7 +495,7 @@ class SolverBase:
             perc = 100 * t / problem.T
             if dual:
                 perc = 100 - perc
-            s += '%g%% done (t = %g, T = %g).' % (perc, round(t,14), problem.T)
+            s += '%g%% done (t = %g, T = %g).' % (perc, round(t, 14), problem.T)
 
         if t is not None:
             sys.stdout.write('\033[K')
