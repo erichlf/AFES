@@ -100,6 +100,8 @@ class SolverBase:
         # create plot objects
         self.vizU = None
         self.vizP = None
+        self.vizEI = None
+        self.vizMesh = None
 
     def solve(self, problem):
         '''
@@ -189,15 +191,13 @@ class SolverBase:
             print 'DOFs=%d functional=%0.5G err_est=%0.5G' \
                 % (mesh.num_vertices(), m, COND)
 
-            if i == 0 and self.plotSolution:
-                plot(ei, title="Error Indicators.", elevate=0.0)
-                plot(mesh, title='Initial mesh', size=((600, 300)))
-            elif (i == self.maxAdapts or COND <= self.adaptTOL) \
-                    and self.plotSolution:
-                plot(ei, title="Error Indicators.", elevate=0.0)
-                plot(mesh, title='Final mesh', size=((600, 300)))
-                interactive()
-            elif not self.plotSolution and self.saveSolution:  # Save solution
+            if self.plotSolution and self.vizEI is None:
+                self.vizEI = plot(ei, title="Error Indicators.", elevate=0.0)
+                self.vizMesh = plot(mesh, title='Current Mesh', size=((600, 300)))
+            elif self.plotSolution:
+                self.vizEI.plot(ei)
+                self.vizMesh.plot(mesh)
+            else:  # Save solution
                 self.eifile << ei
 
             # Refine the mesh
