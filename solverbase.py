@@ -17,6 +17,7 @@ except:
         + "Adjointing will not be available."
     adjointer = False
 
+dolfin.parameters['refinement_algorithm'] = 'recursive_bisection'
 
 from time import time
 from os import getpid
