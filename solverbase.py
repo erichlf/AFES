@@ -19,7 +19,7 @@ except:
 
 try:
     dolfin.parameters['refinement_algorithm'] = options['refinement_algorithm']
-else:
+except:
     dolfin.parameters['refinement_algorithm'] = 'regular_cut'
 
 from time import time
