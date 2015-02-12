@@ -198,7 +198,7 @@ class SolverBase:
             elif self.plotSolution:
                 self.vizEI.plot(ei)
                 self.vizMesh.plot(mesh)
-            elif self.savesolution:  # Save solution
+            elif self.saveSolution:  # Save solution
                 self.eifile << ei
 
             # Refine the mesh
