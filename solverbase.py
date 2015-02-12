@@ -193,11 +193,12 @@ class SolverBase:
 
             if self.plotSolution and self.vizEI is None:
                 self.vizEI = plot(ei, title="Error Indicators.", elevate=0.0)
-                self.vizMesh = plot(mesh, title='Current Mesh', size=((600, 300)))
+                self.vizMesh = plot(mesh, title='Current Mesh',
+                                    size=((600, 300)))
             elif self.plotSolution:
                 self.vizEI.plot(ei)
                 self.vizMesh.plot(mesh)
-            else:  # Save solution
+            elif self.savesolution:  # Save solution
                 self.eifile << ei
 
             # Refine the mesh
@@ -255,9 +256,14 @@ class SolverBase:
         self._timestep = 0  # reset the time step to zero
 
         # compute the dual solution used in ei and grab the tape value
+        if self.steady_state:
+            varname = 'w'
+        else:
+            varname = 'w_'
+
         t = problem.T
         for (adj, var) in compute_adjoint(J, forget=False):
-            if var.name == 'w':
+            if var.name == varname:
                 timestep = var.timestep
                 wtape.append(DolfinAdjointVariable(w).
                              tape_value(timestep=timestep))
@@ -323,7 +329,8 @@ class SolverBase:
         if adjointer:  # only use annotation if DOLFIN-Adjoint was imported
             w = Function(W, name='w')
             if not self.steady_state:
-                w_ = Function(ic, name='w_')
+                ic.rename('ic', 'Forward')
+                w_ = Function(ic, name='w_', annotate=True)
         else:
             w = Function(W)
             if not self.steady_state:
