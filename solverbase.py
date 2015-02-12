@@ -174,7 +174,7 @@ class SolverBase:
             # setup file names
             self.file_naming(problem, n=i, opt=False)
             # save our current mesh
-            if not self.plotSolution:
+            if self.saveSolution:
                 self.meshfile << mesh
 
             if i == 0:
