@@ -17,10 +17,6 @@ except:
         + "Adjointing will not be available."
     adjointer = False
 
-try:
-    dolfin.parameters['refinement_algorithm'] = options['refinement_algorithm']
-except:
-    dolfin.parameters['refinement_algorithm'] = 'regular_cut'
 
 from time import time
 from os import getpid
@@ -178,7 +174,7 @@ class SolverBase:
             # setup file names
             self.file_naming(problem, n=i, opt=False)
             # save our current mesh
-            if self.saveSolution:
+            if not self.plotSolution:
                 self.meshfile << mesh
 
             if i == 0:
@@ -197,12 +193,11 @@ class SolverBase:
 
             if self.plotSolution and self.vizEI is None:
                 self.vizEI = plot(ei, title="Error Indicators.", elevate=0.0)
-                self.vizMesh = plot(mesh, title='Current Mesh',
-                                    size=((600, 300)))
+                self.vizMesh = plot(mesh, title='Current Mesh', size=((600, 300)))
             elif self.plotSolution:
                 self.vizEI.plot(ei)
                 self.vizMesh.plot(mesh)
-            elif self.saveSolution:  # Save solution
+            else:  # Save solution
                 self.eifile << ei
 
             # Refine the mesh
@@ -259,21 +254,24 @@ class SolverBase:
 
         self._timestep = 0  # reset the time step to zero
 
+        adj_html('forward.html', 'forward')
+        adj_html('adjoint.html', 'adjoint')
         # compute the dual solution used in ei and grab the tape value
-        if self.steady_state:
-            varname = 'w'
-        else:
-            varname = 'w_'
-
         t = problem.T
+        iteration = 0
         for (adj, var) in compute_adjoint(J, forget=False):
-            if var.name == varname:
+            if var.name == 'w':
+                if timestep == var.timestep:
+                    iteration += 1
+                else:
+                    iteration = 0
                 timestep = var.timestep
-                wtape.append(DolfinAdjointVariable(w).
-                             tape_value(timestep=timestep))
+                wtape.append(DolfinAdjointVariable(w, timestep=timestep,
+                                                   iteration=iteration).
+                             tape_value())
                 phi.append(adj)
                 if not self.steady_state:
-                    self.update(problem, t, W, adj, dual=True)
+                    self.update(problem, t, W, phi[-1], dual=True)
                     t -= k
 
         if self.steady_state:
@@ -333,8 +331,7 @@ class SolverBase:
         if adjointer:  # only use annotation if DOLFIN-Adjoint was imported
             w = Function(W, name='w')
             if not self.steady_state:
-                ic.rename('ic', 'Forward')
-                w_ = Function(ic, name='w_', annotate=True)
+                w_ = Function(ic, name='w_')
         else:
             w = Function(W)
             if not self.steady_state:
@@ -477,7 +474,7 @@ class SolverBase:
 
         print
 
-        return w_, m
+        return w, m
 
     def update(self, problem, t, W, w, dual=False):
         '''
