@@ -254,8 +254,6 @@ class SolverBase:
 
         self._timestep = 0  # reset the time step to zero
 
-        adj_html('forward.html', 'forward')
-        adj_html('adjoint.html', 'adjoint')
         # compute the dual solution used in ei and grab the tape value
         t = problem.T
         iteration = 0
