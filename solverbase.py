@@ -264,9 +264,12 @@ class SolverBase:
                 else:
                     iteration = 0
                 timestep = var.timestep
-                wtape.append(DolfinAdjointVariable(w, timestep=timestep,
-                                                   iteration=iteration).
-                             tape_value())
+                if not self.steady_state:
+                    wtape.append(DolfinAdjointVariable(w, timestep=timestep,
+                                                       iteration=iteration).
+                                 tape_value())
+                else:
+                    wtape.append(DolfinAdjointVariable(w).tape_value())
                 phi.append(adj)
                 if not self.steady_state:
                     self.update(problem, t, W, phi[-1], dual=True)
