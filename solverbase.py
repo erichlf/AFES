@@ -77,6 +77,8 @@ class SolverBase:
         self.adaptTOL = options['adaptive_TOL']
         self.onDisk = options['on_disk']
 
+        self.dir = options['folder']  # path to save data
+
         self.optimize = options['optimize']
 
         self.steady_state = False
@@ -174,8 +176,13 @@ class SolverBase:
             # setup file names
             self.file_naming(problem, n=i, opt=False)
             # save our current mesh
-            if not self.plotSolution:
+            if self.saveSolution:
                 self.meshfile << mesh
+
+            if self.plotSolution and self.vizMesh is None:
+                self.vizMesh = plot(mesh, title='Current Mesh', size=((600, 300)))
+            elif self.plotSolution:
+                self.vizMesh.plot(mesh)
 
             if i == 0:
                 print 'Solving on initial mesh.'
@@ -193,11 +200,10 @@ class SolverBase:
 
             if self.plotSolution and self.vizEI is None:
                 self.vizEI = plot(ei, title="Error Indicators.", elevate=0.0)
-                self.vizMesh = plot(mesh, title='Current Mesh', size=((600, 300)))
             elif self.plotSolution:
                 self.vizEI.plot(ei)
-                self.vizMesh.plot(mesh)
-            else:  # Save solution
+
+            if self.saveSolution:  # Save solution
                 self.eifile << ei
 
             # Refine the mesh

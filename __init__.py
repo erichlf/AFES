@@ -23,6 +23,7 @@ OPTIONS = {
     'adaptive_TOL': 1E-20,  # tolerance for terminating adaptivity
     'optimize': False,  # optimize as defined in solver
     'on_disk': 0.,  # percent of steps on disk
+    'folder': 'results/',  # location to save data
     'save_solution': False,
     'save_frequency': 1,
     'plot_solution': True,
