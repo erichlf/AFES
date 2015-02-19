@@ -583,7 +583,7 @@ class SolverBase:
             solvers variables the user will need to overload this function.
         '''
 
-        s = 'results/' + self.prefix(problem) + self.suffix(problem)
+        s = self.dir + self.prefix(problem) + self.suffix(problem)
 
         if n == -1:
             if opt:
