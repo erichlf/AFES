@@ -17,7 +17,6 @@ except:
         + "Adjointing will not be available."
     adjointer = False
 
-
 from time import time
 from os import getpid
 from commands import getoutput
@@ -46,6 +45,13 @@ class SolverBase:
         prm['absolute_tolerance'] = options['absolute_tolerance']
         prm['relative_tolerance'] = options['relative_tolerance']
         prm['report'] = options['monitor_convergence']
+
+        # tell us our refinement strategy
+        try:
+            dolfin.parameters['refinement_algorithm'] = \
+                options['refinement_algorithm']
+        except:
+            dolfin.parameters['refinement_algorithm'] = 'regular_cut'
 
         # Set debug level
         set_log_active(options['debug'])

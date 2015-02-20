@@ -18,6 +18,7 @@ OPTIONS = {
     'theta': 0.5,  # time-stepping method
     'stabilize': True,  # stabilize the solution
     'adaptive': False,  # mesh adaptivity
+    'refinement_algorithm': 'regular_cut',  # algorithm to use in refinement
     'adapt_ratio': 0.1,  # percent of mesh to refine
     'max_adaptations': 30,  # max number of times to adapt mesh
     'adaptive_TOL': 1E-20,  # tolerance for terminating adaptivity
