@@ -25,6 +25,7 @@ import sys
 # Common solver parameters
 maxiter = default_maxiter = 200
 tolerance = default_tolerance = 1e-4
+nth = ('st', 'nd', 'rd', 'th')  # numerical descriptors
 
 
 class SolverBase:
@@ -36,7 +37,26 @@ class SolverBase:
 
     def __init__(self, options):
 
-        # Set global DOLFIN parameters
+        # Set global DOLFIN and Dolfin-Adjoint parameters
+        self.set_parameters(options)
+        # set global AFES options
+        self.set_options(options)
+
+        # Reset files for storing solution
+        self._ufile, self._pfile = None, None
+        self._uDualfile, self._pDualfile, self.eifile = None, None, None
+        self.meshfile = None
+        self.optfile = None
+
+        # Reset storage for functional values and errors
+        # Reset some solver variables
+        self._t, self._time, self._cputime, self._timestep = [], None, 0.0, 0
+
+        # create plot objects
+        self.vizU, self.vizP, self.vizEI, self.vizMesh = None, None, None, None
+
+    def set_parameters(self, options):
+
         parameters['form_compiler']['cpp_optimize'] = True
         parameters['allow_extrapolation'] = True
         nonLinearSolver = NewtonSolver()
@@ -56,6 +76,8 @@ class SolverBase:
         # Set debug level
         set_log_active(options['debug'])
 
+    def set_options(self, options):
+
         self.mem = options['check_mem_usage']
 
         self.saveSolution = options['save_solution']
@@ -71,11 +93,6 @@ class SolverBase:
         except:
             self.theta = 0.5
 
-        # Reset some solver variables
-        self._time = None
-        self._cputime = 0.0
-        self._timestep = 0
-
         # adaptivity options
         self.adaptive = options['adaptive']
         self.adaptRatio = options['adapt_ratio']
@@ -89,24 +106,6 @@ class SolverBase:
 
         self.steady_state = False
 
-        # Reset files for storing solution
-        self._ufile = None
-        self._pfile = None
-        self._uDualfile = None
-        self._pDualfile = None
-        self.eifile = None
-        self.meshfile = None
-        self.optfile = None
-
-        # Reset storage for functional values and errors
-        self._t = []
-
-        # create plot objects
-        self.vizU = None
-        self.vizP = None
-        self.vizEI = None
-        self.vizMesh = None
-
     def solve(self, problem):
         '''
             This is the general solve class which will determine if adaptivity
@@ -114,16 +113,12 @@ class SolverBase:
         '''
         mesh = problem.mesh
         if not self.steady_state:
-            T = problem.T
-            t0 = problem.t0
+            T, t0 = problem.T, problem.t0
 
             # adjust time step so that we evenly divide time interval
             k = self.adjust_dt(t0, T, problem.k)
         else:
-            T = None
-            t0 = None
-
-            k = None
+            T, t0, k = None, None, None
 
         if self.adaptive:  # solve with adaptivity
             if adjointer:
@@ -169,11 +164,9 @@ class SolverBase:
 
     def adaptivity(self, problem, mesh, T, t0, k):
         COND = 1
-        nth = ('st', 'nd', 'rd', 'th')  # numerical descriptors
 
         # Adaptive loop
-        i = 0
-        m = 0  # initialize
+        i, m = 0, 0  # initialize
         while(i <= self.maxAdapts and COND > self.adaptTOL):
             # setup file names
             self.file_naming(problem, n=i, opt=False)
@@ -182,16 +175,12 @@ class SolverBase:
                 self.meshfile << mesh
 
             if self.plotSolution and self.vizMesh is None:
-                self.vizMesh = plot(mesh, title='Current Mesh', size=((600, 300)))
+                self.vizMesh = plot(mesh, title='Current Mesh',
+                                    size=((600, 300)))
             elif self.plotSolution:
                 self.vizMesh.plot(mesh)
 
-            if i == 0:
-                print 'Solving on initial mesh.'
-            elif i < len(nth):
-                print 'Solving on %d%s adapted mesh.' % (i, nth[i - 1])
-            else:
-                print 'Solving on %d%s adapted mesh.' % (i, nth[-1])
+            print 'Solving on %s mesh.' % self.which_mesh(i)
 
             # Solve primal and dual problems and compute error indicators
             m_ = m  # save the previous functional value
@@ -251,14 +240,26 @@ class SolverBase:
 
         print 'Solving the dual problem.'
         # Generate the dual problem
+        phi, wtape = self.compute_dual(problem, W, k, w)
+
+        if self.steady_state:
+            self.update(problem, None, W, phi[0], dual=True)
+        else:
+            print
+
+        print 'Building error indicators.'
+        ei = self.build_error_indicators(problem, W, k, phi, wtape)
+
+        return W, w, m, ei
+
+    def compute_dual(self, problem, W, k, w):
+
         if self.steady_state:
             functional = problem.functional(W, w)
         else:
             functional = problem.functional(W, w) * dt
         J = Functional(functional, name='DualArgument')
-        timestep = None
-        wtape = []
-        phi = []
+        timestep, wtape, phi = None, [], []
 
         self._timestep = 0  # reset the time step to zero
 
@@ -283,13 +284,10 @@ class SolverBase:
                     self.update(problem, t, W, phi[-1], dual=True)
                     t -= k
 
-        if self.steady_state:
-            self.update(problem, None, W, phi[0], dual=True)
-        else:
-            print
+        return phi, wtape
 
-        print 'Building error indicators.'
-        Z = FunctionSpace(mesh, "DG", 0)
+    def build_error_indicators(self, problem, W, k, phi, wtape):
+        Z = FunctionSpace(W.mesh(), "DG", 0)
         z = TestFunction(Z)
         ei = Function(Z, name='Error Indicator')
         LR1 = 0.
@@ -308,7 +306,7 @@ class SolverBase:
                                      ei_mode=True)
             ei.vector()[:] = assemble(LR1, annotate=False).array()
 
-        return W, w, m, ei
+        return ei
 
     def condition(self, ei, m, m_):
         '''
@@ -399,6 +397,17 @@ class SolverBase:
         mesh = refine(mesh, cell_markers)
 
         return mesh
+
+    def which_mesh(self, i):
+        num = map(int, str(i))  # split i so that we can look at last digit
+        if i == 0:
+            s = 'initial'
+        elif num[-1] < len(nth) and (i < 11 or i > 20):
+            s = '%d%s adapted ' % (i, nth[i - 1])
+        else:
+            s = '%d%s adapted ' % (i, nth[-1])
+
+        return s
 
     def adjust_dt(self, t0, T, k):
         '''
