@@ -293,7 +293,7 @@ class SolverBase:
         LR1 = 0.
 
         if not self.steady_state:
-            for i in range(0, len(wtape) - 1):
+            for i in xrange(len(wtape) - 1):
                 # the tape is backwards so i+1 is the previous time step
                 wtape_theta = self.theta * wtape[i] \
                     + (1. - self.theta) * wtape[i + 1]
@@ -480,7 +480,7 @@ class SolverBase:
                 m += k * assemble(problem.functional(W, w_))
 
             if adjointer:  # can only use if DOLFIN-Adjoint has been imported
-                adj_inc_timestep(t, finished=t>T-k/2.)
+                adj_inc_timestep(t, finished=(t > T - k / 2.))
 
             self.update(problem, t, W, w_)
 
