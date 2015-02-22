@@ -89,10 +89,6 @@ class SolverBase:
 
         self.steady_state = False
 
-        # set the velocity and pressure element orders
-        self.Pu = options['velocity_order']
-        self.Pp = options['pressure_order']
-
         # Reset files for storing solution
         self._ufile = None
         self._pfile = None
@@ -369,14 +365,10 @@ class SolverBase:
 
     # define functions spaces
     def function_space(self, mesh):
-        '''
-            Sets up a general mixed function space. We assume there are only two
-            variables and the first variable is vector valued. To use something
-            different the user can overload this in their Solver.
-        '''
-        V = VectorFunctionSpace(mesh, 'CG', self.Pu)
-        Q = FunctionSpace(mesh, 'CG', self.Pp)
-        W = MixedFunctionSpace([V, Q])
+
+        print "NO FUNCTION SPACE PROVIDED: You must define a function_space" \
+            + " for this code to work."
+        sys.exit(1)
 
         return W
 
@@ -464,13 +456,11 @@ class SolverBase:
             if('update' in dir(problem)):
                 bcs = problem.update(W, t)
 
-            if 'pre_step' in dir(self):
-                self.pre_step(problem, t, k, W, w)
+            self.pre_step(problem, t, k, W, w)
 
             solve(F == 0, w, bcs)
 
-            if 'post_step' in dir(self):
-                self.post_step(problem, t, k, W, w, w_)
+            self.post_step(problem, t, k, W, w, w_)
 
             w_.assign(w)
 
@@ -488,6 +478,12 @@ class SolverBase:
         print
 
         return w, m
+
+    def pre_step(self, problem, t, k, W, w):
+        pass
+
+    def post_step(self, problem, t, k, W, w, w_):
+        pass
 
     def update(self, problem, t, W, w, dual=False):
         '''

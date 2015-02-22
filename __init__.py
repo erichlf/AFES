@@ -33,7 +33,5 @@ OPTIONS = {
     'absolute_tolerance': 1e-25,
     'relative_tolerance': 1e-12,
     'monitor_convergence': False,
-    'velocity_order': 1,  # order of velocity element
-    'pressure_order': 1,  # order of height/pressure element
     'initial_mesh': None,  # to use for initial computation
 }
