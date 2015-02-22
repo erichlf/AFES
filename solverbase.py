@@ -403,7 +403,7 @@ class SolverBase:
         if i == 0:
             s = 'initial'
         elif num[-1] < len(nth) and (i < 11 or i > 20):
-            s = '%d%s adapted ' % (i, nth[i - 1])
+            s = '%d%s adapted ' % (i, nth[num[-1] - 1])
         else:
             s = '%d%s adapted ' % (i, nth[-1])
 
