@@ -1,3 +1,5 @@
-Automated Finite Element Solver
+ASP: Automated Solver for Partial Differential Equations
 ===
-This is an automated Finite Element solver, including mesh adaptivity and optimization, for partial differential equations based in FEniCS/DOLFIN.
+ASP is an Automated Finite Element solver for partial differential equations,
+including mesh adaptivity and optimization, for partial differential equations
+based in FEniCS/DOLFIN.

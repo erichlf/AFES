@@ -39,7 +39,7 @@ class SolverBase:
 
         # Set global DOLFIN and Dolfin-Adjoint parameters
         self.set_parameters(options)
-        # set global AFES options
+        # set global ASP options
         self.set_options(options)
 
         # Reset files for storing solution

@@ -4,8 +4,8 @@ __license__ = "GNU GPL version 3 or any later version"
 __version__ = "0.1"
 
 from dolfin import *
-from AFES.solverbase import SolverBase as Solver
-from AFES.problembase import ProblemBase as Problem
+from ASP.solverbase import SolverBase as Solver
+from ASP.problembase import ProblemBase as Problem
 
 # Default options
 OPTIONS = {
