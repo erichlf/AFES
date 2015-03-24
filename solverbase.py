@@ -465,11 +465,11 @@ class SolverBase:
             if('update' in dir(problem)):
                 bcs = problem.update(W, t)
 
-            self.pre_step(problem, t, k, W, w)
+            self.pre_step(problem, t, k, W, w_theta, w, w_)
 
             solve(F == 0, w, bcs)
 
-            self.post_step(problem, t, k, W, w, w_)
+            self.post_step(problem, t, k, W, w_theta, w, w_)
 
             w_.assign(w)
 
@@ -488,10 +488,10 @@ class SolverBase:
 
         return w, m
 
-    def pre_step(self, problem, t, k, W, w):
+    def pre_step(self, problem, t, k, W, w_theta, w, w_):
         pass
 
-    def post_step(self, problem, t, k, W, w, w_):
+    def post_step(self, problem, t, k, W, w_theta, w, w_):
         pass
 
     def update(self, problem, t, W, w, dual=False):
