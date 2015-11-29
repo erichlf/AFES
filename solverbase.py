@@ -333,7 +333,7 @@ class SolverBase:
         W = self.function_space(mesh)
 
         if not self.steady_state:
-            ic = problem.initial_conditions(W, annotate=annotation)
+            ic = problem.initial_conditions(W, annotate=annotate)
 
         # define trial and test function
         wt = TestFunction(W)
