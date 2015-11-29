@@ -133,12 +133,13 @@ class SolverBase:
 
         # record so that we can evaluate our functional
         if adjointer:
-            parameters["adjoint"]["stop_annotating"] = \
-                not (self.adaptive or (self.optimize
-                                       and 'Optimize' in dir(problem)))
+            annotate = self.adaptive or (self.optimize and
+                                         'Optimize' in dir(problem))
 
+        parameters["adjoint"]["stop_annotating"] = not annotate
         func = 'functional' in dir(problem)
-        W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
+        W, w, m = self.forward_solve(problem, mesh, t0, T, k,
+                                     func=func, annotate=annotate)
 
         if m is not None:
             print 'The size of the functional is: %0.3G' % m
@@ -320,7 +321,8 @@ class SolverBase:
 
         return c
 
-    def forward_solve(self, problem, mesh, t0, T, k, func=False):
+    def forward_solve(self, problem, mesh, t0, T, k,
+                      func=False, annotate=False):
         '''
             Here we take the weak_residual and apply boundary conditions and
             then send it to time_stepper for solving.
@@ -331,7 +333,7 @@ class SolverBase:
         W = self.function_space(mesh)
 
         if not self.steady_state:
-            ic = problem.initial_conditions(W)
+            ic = problem.initial_conditions(W, annotate=annotation)
 
         # define trial and test function
         wt = TestFunction(W)
