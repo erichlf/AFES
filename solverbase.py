@@ -135,8 +135,10 @@ class SolverBase:
         if adjointer:
             annotate = self.adaptive or (self.optimize and
                                          'Optimize' in dir(problem))
+            parameters["adjoint"]["stop_annotating"] = not annotate
+        else:
+            annotate = False
 
-        parameters["adjoint"]["stop_annotating"] = not annotate
         func = 'functional' in dir(problem)
         W, w, m = self.forward_solve(problem, mesh, t0, T, k,
                                      func=func, annotate=annotate)
