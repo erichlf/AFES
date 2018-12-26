@@ -1,6 +1,6 @@
-__author__ = "Erich L Foster <erichlf@gmail.com>"
-__date__ = "2013-08-27"
-__license__ = "GNU GPL version 3 or any later version"
+__author__ = 'Erich L Foster <erichlf@gmail.com>'
+__date__ = '2018-12-26'
+__license__ = 'GNU GPL version 3 or any later version'
 #
 #   adapted from solverbase.py in nsbench originally developed by
 #   Anders Logg <logg@simula.no>
@@ -10,16 +10,16 @@ from dolfin import *
 try:
     from dolfin_adjoint import *
 
-    dolfin.parameters["adjoint"]["record_all"] = True
+    dolfin.parameters['adjoint"]["record_all'] = True
     adjointer = True
 except:
-    print "WARNING: Could not import DOLFIN-Adjoint. " \
-        + "Adjointing will not be available."
+    print('WARNING: Could not import DOLFIN-Adjoint. ' \
+        + 'Adjointing will not be available.')
     adjointer = False
 
 from time import time
 from os import getpid
-from commands import getoutput
+from subprocess import getoutput
 import sys
 
 # Common solver parameters
@@ -124,18 +124,18 @@ class SolverBase:
             if adjointer:
                 mesh, k = self.adaptivity(problem, mesh, T, t0, k)
             else:
-                print "WARNING: You have requested adaptivity, but DOLFIN-Adjoint" \
-                    + " doesn't appear to be installed."
-                print "Solving without adaptivity."
+                print('WARNING: You have requested adaptivity, but DOLFIN-Adjoint' \
+                    + ' doesn\'t appear to be installed.')
+                print('Solving without adaptivity.')
 
-        print 'Solving the primal problem.'
+        print('Solving the primal problem.')
         self.file_naming(problem, n=-1, opt=False)
 
         # record so that we can evaluate our functional
         if adjointer:
             annotate = self.adaptive or (self.optimize and
                                          'Optimize' in dir(problem))
-            parameters["adjoint"]["stop_annotating"] = not annotate
+            parameters['adjoint"]["stop_annotating'] = not annotate
         else:
             annotate = False
 
@@ -144,24 +144,24 @@ class SolverBase:
                                      func=func, annotate=annotate)
 
         if m is not None:
-            print 'The size of the functional is: %0.3G' % m
+            print('The size of the functional is: {:0.3G}'.format(m))
 
         # solve the optimization problem
         if(self.optimize and 'Optimize' in dir(problem)):
             if adjointer:
                 # give me an end line so that dolfin-adjoint doesn't
                 # cover previous prints
-                print
+                print()
                 problem.Optimize(self, W, w)
 
                 self.file_naming(problem, n=-1, opt=True)
 
-                parameters["adjoint"]["stop_annotating"] = True
+                parameters['adjoint"]["stop_annotating'] = True
                 W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=func)
             else:
-                print "WARNING: You have requested Optimization, but" \
-                    + " DOLFIN-Adjoint doesn't appear to be installed."
-                print "Not running optimization."
+                print('WARNING: You have requested Optimization, but' \
+                    + ' DOLFIN-Adjoint doesn\'t appear to be installed.')
+                print('Not running optimization.')
 
         return w
 
@@ -183,17 +183,16 @@ class SolverBase:
             elif self.plotSolution:
                 self.vizMesh.plot(mesh)
 
-            print 'Solving on %s mesh.' % self.which_mesh(i)
+            print('Solving on {} mesh.'.format(self.which_mesh(i)))
 
             # Solve primal and dual problems and compute error indicators
             m_ = m  # save the previous functional value
             W, w, m, ei = self.adaptive_solve(problem, mesh, t0, T, k)
             COND = self.condition(ei, m, m_)
-            print 'DOFs=%d functional=%0.5G err_est=%0.5G' \
-                % (mesh.num_vertices(), m, COND)
+            print('DOFs={:d} functional={:0.5G} err_est={:0.5G}'.format(mesh.num_vertices(), m, COND))
 
             if self.plotSolution and self.vizEI is None:
-                self.vizEI = plot(ei, title="Error Indicators.", elevate=0.0)
+                self.vizEI = plot(ei, title='Error Indicators.', elevate=0.0)
             elif self.plotSolution:
                 self.vizEI.plot(ei)
 
@@ -201,7 +200,7 @@ class SolverBase:
                 self.eifile << ei
 
             # Refine the mesh
-            print 'Refining mesh.'
+            print('Refining mesh.')
             mesh = self.adaptive_refine(mesh, ei)
             if 'time_step' in dir(problem) and not self.steady_state:
                 k = self.adjust_dt(t0, T, problem.time_step(problem.Ubar, mesh))
@@ -211,10 +210,8 @@ class SolverBase:
             i += 1
 
         if i > self.maxAdapts and COND > self.adaptTOL:
-            s = 'Warning reached max adaptive iterations with' \
-                + 'sum(abs(EI))=%0.3G.  Solution may not be accurate.' \
-                % COND
-            print s
+            print('Warning reached max adaptive iterations with' \
+                + 'sum(abs(EI))={:0.3G}. Solution may not be accurate.'.format(COND))
 
         return mesh, k
 
@@ -223,8 +220,8 @@ class SolverBase:
             Adaptive solve applies the error representation to goal-oriented
             adaptivity. This is all done automatically using the weak_residual.
         '''
-        print 'Solving the primal problem.'
-        parameters["adjoint"]["stop_annotating"] = False
+        print('Solving the primal problem.')
+        parameters['adjoint"]["stop_annotating'] = False
 
         if not self.steady_state:
             N = int(round((T - t0) / k))
@@ -238,19 +235,19 @@ class SolverBase:
 
         self._timestep = 0  # reset the time step to zero
         W, w, m = self.forward_solve(problem, mesh, t0, T, k, func=True)
-        parameters["adjoint"]["stop_annotating"] = True
+        parameters['adjoint"]["stop_annotating'] = True
         self._timestep = 0  # reset the time step to zero
 
-        print 'Solving the dual problem.'
+        print('Solving the dual problem.')
         # Generate the dual problem
         phi, wtape = self.compute_dual(problem, W, k, w)
 
         if self.steady_state:
             self.update(problem, None, W, phi[0], dual=True)
         else:
-            print
+            print()
 
-        print 'Building error indicators.'
+        print('Building error indicators.')
         ei = self.build_error_indicators(problem, W, k, phi, wtape)
 
         return W, w, m, ei
@@ -290,7 +287,7 @@ class SolverBase:
         return phi, wtape
 
     def build_error_indicators(self, problem, W, k, phi, wtape):
-        Z = FunctionSpace(W.mesh(), "DG", 0)
+        Z = FunctionSpace(W.mesh(), 'DG', 0)
         z = TestFunction(Z)
         ei = Function(Z, name='Error Indicator')
         LR1 = 0.
@@ -368,16 +365,16 @@ class SolverBase:
     # define functions spaces
     def function_space(self, mesh):
 
-        print "NO FUNCTION SPACE PROVIDED: You must define a function_space" \
-            + " for this code to work."
+        print('NO FUNCTION SPACE PROVIDED: You must define a function_space' \
+            + ' for this code to work.')
         sys.exit(1)
 
         return W
 
     def weak_residual(self, problem, k, W, w, ww, w_, wt, ei_mode=False):
 
-        print "NO WEAK RESIDUAL PROVIDED: You must define a weak_residual for" \
-            + " this code to work."
+        print('NO WEAK RESIDUAL PROVIDED: You must define a weak_residual for' \
+            + ' this code to work.')
         sys.exit(1)
 
     # Refine the mesh based on error indicators
@@ -389,11 +386,11 @@ class SolverBase:
         gamma = abs(ei.vector().array())
 
         # Mark cells for refinement
-        cell_markers = MeshFunction("bool", mesh, mesh.topology().dim())
+        cell_markers = MeshFunction('bool', mesh, mesh.topology().dim())
         adapt_n = int(len(gamma) * self.adaptRatio - 1)
         gamma_0 = sorted(gamma, reverse=True)[adapt_n]
-        print 'Refining %G of %G cells (%0.2G%%).' \
-            % (adapt_n, len(gamma), 100*adapt_n/len(gamma))
+        print('Refining {:G} of {:G} cells ({:0.2G}%%).'.format(adapt_n, len(gamma),
+                                                                100*adapt_n/len(gamma)))
         for c in cells(mesh):
             cell_markers[c] = gamma[c.index()] > gamma_0
 
@@ -407,9 +404,9 @@ class SolverBase:
         if i == 0:
             s = 'initial'
         elif num[-1] < len(nth) and (i < 11 or i > 20):
-            s = '%d%s adapted ' % (i, nth[num[-1] - 1])
+            s = '{:d}{} adapted '.format(i, nth[num[-1] - 1])
         else:
-            s = '%d%s adapted ' % (i, nth[-1])
+            s = '{:d}{:s} adapted '.format(i, nth[-1])
 
         return s
 
@@ -488,7 +485,7 @@ class SolverBase:
 
             self.update(problem, t, W, w_)
 
-        print
+        print()
 
         return w, m
 
@@ -516,16 +513,17 @@ class SolverBase:
 
         # Check memory usage
         if self.mem:
-            print 'Memory usage is:', self.getMyMemoryUsage()
+            print('Memory usage is:', self.getMyMemoryUsage())
 
         # Print progress
         if t is not None:
-            s = 'Time step %d finished in %g seconds, ' \
-                % (self._timestep, timestep_cputime)
+            s = 'Time step {:d} finished in {:g} seconds, '.format(self._timestep,
+                                                                   timestep_cputime)
             perc = 100 * t / problem.T
             if dual:
                 perc = 100 - perc
-            s += '%g%% done (t = %g, T = %g).' % (perc, round(t, 14), problem.T)
+                s += '{:g}%% done (t = {:g}, T = {:g}).'.format(perc, round(t, 14),
+                                                                problem.T)
 
         if t is not None:
             sys.stdout.write('\033[K')
@@ -613,11 +611,11 @@ class SolverBase:
         else:  # adaptive specific files
             if self.eifile is None:  # error indicators
                 self.eifile = File(s + '_ei.pvd', 'compressed')
-            self._ufile = File(s + '_u%02d.pvd' % n, 'compressed')
-            self._pfile = File(s + '_p%02d.pvd' % n, 'compressed')
-            self._uDualfile = File(s + '_uDual%02d.pvd' % n, 'compressed')
-            self._pDualfile = File(s + '_pDual%02d.pvd' % n, 'compressed')
-            self.meshfile = File(s + '_mesh%02d.xml' % n)
+                self._ufile = File(s + '_u{:02d}.pvd'.format(n), 'compressed')
+            self._pfile = File(s + '_p{:02d}.pvd'.format(n), 'compressed')
+            self._uDualfile = File(s + '_uDual{:02d}.pvd'.format(n), 'compressed')
+            self._pDualfile = File(s + '_pDual{:02d}.pvd'.format(n), 'compressed')
+            self.meshfile = File(s + '_mesh{:02d}.xml'.format(n))
 
     # this is a separate function so that it can be overloaded
     def Plot(self, problem, W, w):
@@ -644,7 +642,7 @@ class SolverBase:
             Determines how much memory we are using.
         '''
         mypid = getpid()
-        mymemory = getoutput('ps -o rss %s' % mypid).split()[1]
+        mymemory = getoutput('ps -o rss {}'.format(mypid)).split()[1]
         return mymemory
 
     def start_timing(self):
