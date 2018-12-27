@@ -10,7 +10,7 @@ from dolfin import *
 try:
     from dolfin_adjoint import *
 
-    dolfin.parameters['adjoint"]["record_all'] = True
+    parameters['adjoint"]["record_all'] = True
     adjointer = True
 except:
     print('WARNING: Could not import DOLFIN-Adjoint. ' \
@@ -68,13 +68,13 @@ class SolverBase:
 
         # tell us our refinement strategy
         try:
-            dolfin.parameters['refinement_algorithm'] = \
+            parameters['refinement_algorithm'] = \
                 options['refinement_algorithm']
         except:
-            dolfin.parameters['refinement_algorithm'] = 'regular_cut'
+            parameters['refinement_algorithm'] = 'regular_cut'
 
         # Set debug level
-        set_log_active(options['debug'])
+        set_log_level(options['debug'])
 
     def set_options(self, options):
 
