@@ -42,6 +42,9 @@ class SolverBase:
         # set global ASP options
         self.set_options(options)
 
+        # Set log level
+        set_log_level(self.log_level)
+
         # Reset files for storing solution
         self._ufile, self._pfile = None, None
         self._uDualfile, self._pDualfile, self.eifile = None, None, None
@@ -64,14 +67,11 @@ class SolverBase:
         prm['report'] = options['monitor_convergence']
 
         # tell us our refinement strategy
-        try:
+        if 'refinement_algorithm' in options.keys():
             parameters['refinement_algorithm'] = \
                 options['refinement_algorithm']
-        except:
+        else:
             parameters['refinement_algorithm'] = 'regular_cut'
-
-        # Set debug level
-        set_log_level(options['debug'])
 
     def set_options(self, options):
 
@@ -81,9 +81,9 @@ class SolverBase:
         self.saveFrequency = options['save_frequency']
 
         # initialize the time stepping method parameters
-        try:
+        if 'theta' in options.keys():
             self.theta = options['theta']  # time stepping method
-        except:
+        else:
             self.theta = 0.5
 
         # adaptivity options
@@ -98,6 +98,11 @@ class SolverBase:
         self.optimize = options['optimize']
 
         self.steady_state = False
+
+        if 'log_level' in options.keys():
+            self.log_level = options['log_level']
+        else:
+            self.log_level = 50  # info
 
     def solve(self, problem):
         '''
