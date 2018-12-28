@@ -52,9 +52,6 @@ class SolverBase:
         # Reset some solver variables
         self._t, self._time, self._cputime, self._timestep = [], None, 0.0, 0
 
-        # create plot objects
-        self.vizU, self.vizP, self.vizEI, self.vizMesh = None, None, None, None
-
     def set_parameters(self, options):
 
         parameters['form_compiler']['cpp_optimize'] = True
@@ -81,10 +78,6 @@ class SolverBase:
         self.mem = options['check_mem_usage']
 
         self.saveSolution = options['save_solution']
-        if self.saveSolution:
-            self.plotSolution = False
-        else:
-            self.plotSolution = options['plot_solution']
         self.saveFrequency = options['save_frequency']
 
         # initialize the time stepping method parameters
@@ -177,12 +170,6 @@ class SolverBase:
             if self.saveSolution:
                 self.meshfile << mesh
 
-            if self.plotSolution and self.vizMesh is None:
-                self.vizMesh = plot(mesh, title='Current Mesh',
-                                    size=((600, 300)))
-            elif self.plotSolution:
-                self.vizMesh.plot(mesh)
-
             print('Solving on {} mesh.'.format(self.which_mesh(i)))
 
             # Solve primal and dual problems and compute error indicators
@@ -190,11 +177,6 @@ class SolverBase:
             W, w, m, ei = self.adaptive_solve(problem, mesh, t0, T, k)
             COND = self.condition(ei, m, m_)
             print('DOFs={:d} functional={:0.5G} err_est={:0.5G}'.format(mesh.num_vertices(), m, COND))
-
-            if self.plotSolution and self.vizEI is None:
-                self.vizEI = plot(ei, title='Error Indicators.', elevate=0.0)
-            elif self.plotSolution:
-                self.vizEI.plot(ei)
 
             if self.saveSolution:  # Save solution
                 self.eifile << ei
@@ -450,7 +432,7 @@ class SolverBase:
 
         bcs = problem.boundary_conditions(W, t)
 
-        # plot and save initial condition
+        # save initial condition
         self.update(problem, t, W, w_)
 
         if func and adjointer:  # annotation only works with DOLFIN-Adjoint
@@ -497,7 +479,7 @@ class SolverBase:
 
     def update(self, problem, t, W, w, dual=False):
         '''
-            Saves or plots the data at each time step.
+            Saves the data at each time step.
         '''
         # Add to accumulated CPU time
         timestep_cputime = time() - self._time
@@ -508,8 +490,6 @@ class SolverBase:
 
         if self.saveSolution:  # Save solution
             self.Save(problem, w, dual=dual)
-        elif self.plotSolution:  # Plot solution
-            self.Plot(problem, W, w)
 
         # Check memory usage
         if self.mem:
@@ -616,26 +596,6 @@ class SolverBase:
             self._uDualfile = File(s + '_uDual{:02d}.pvd'.format(n), 'compressed')
             self._pDualfile = File(s + '_pDual{:02d}.pvd'.format(n), 'compressed')
             self.meshfile = File(s + '_mesh{:02d}.xml'.format(n))
-
-    # this is a separate function so that it can be overloaded
-    def Plot(self, problem, W, w):
-        '''
-            Plots our variables associated with a time step. Here we assume
-            there are two variables where the first variable is vector-valued
-            and the second variable is a scalar. If this doesn't fit the
-            particular solvers variables the user will need to overload this
-            function.
-        '''
-        u = w.split()[0]
-        p = w.split()[1]
-
-        if self.vizU is None:
-            # Plot velocity and pressure
-            self.vizU = plot(u, title='Velocity', rescale=True)
-            self.vizP = plot(p, title='Pressure', rescale=True, elevate=0.0)
-        else:
-            self.vizU.plot(u)
-            self.vizP.plot(p)
 
     def getMyMemoryUsage(self):
         '''
