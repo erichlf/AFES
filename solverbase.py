@@ -343,7 +343,7 @@ class SolverBase:
         else:
             w = Function(W)
             if not self.steady_state:
-                w_ = Function(ic)
+                w_ = ic
 
         if not self.steady_state:
             theta = self.theta
